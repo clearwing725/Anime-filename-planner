@@ -41,6 +41,8 @@ test('published Windows app opens and exports through its native controls', {
       WEBVIEW2_USER_DATA_FOLDER: path.join(profile, 'webview'),
     },
   });
+  app.stderr.setEncoding('utf8');
+  app.stderr.on('data', output => process.stderr.write(output));
   t.after(async () => {
     if (app.pid && app.exitCode === null) {
       await run('taskkill.exe', ['/PID', String(app.pid), '/T', '/F'], { timeout: 5000 }).catch(() => {});
@@ -52,7 +54,23 @@ test('published Windows app opens and exports through its native controls', {
     app.once('error', reject);
   });
 
-  const browser = await waitForWebView(app);
+  const browser = await waitForWebView(app).catch(async error => {
+    const diagnostics = await powerShell(['-Command', `
+      Get-Process -Id ${app.pid} -ErrorAction SilentlyContinue | Format-List Id,SessionId,Responding,MainWindowTitle
+      Get-Process msedgewebview2 -ErrorAction SilentlyContinue | Format-Table Id,SessionId
+      Get-NetTCPConnection -LocalPort 9222 -ErrorAction SilentlyContinue | Format-Table LocalAddress,State,OwningProcess
+      Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+      $scope = [System.Windows.Automation.TreeScope]
+      $element = [System.Windows.Automation.AutomationElement]
+      $filter = [System.Windows.Automation.PropertyCondition]::new($element::ProcessIdProperty, ${app.pid})
+      $element::RootElement.FindAll($scope::Children, $filter) | ForEach-Object {
+        $_.FindAll($scope::Subtree, [System.Windows.Automation.Condition]::TrueCondition) |
+          ForEach-Object { $_.Current.Name } | Where-Object { $_ } | Select-Object -First 30
+      }
+    `], { timeout: 8000 }).catch(failure => ({ stdout: failure.stdout ?? '' }));
+    console.error(diagnostics.stdout);
+    throw error;
+  });
   try {
     const context = browser.contexts()[0];
     const page = context.pages()[0] ?? await context.waitForEvent('page', { timeout: 15000 });

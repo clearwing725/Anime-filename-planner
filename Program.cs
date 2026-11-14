@@ -81,8 +81,9 @@ internal sealed class PlannerWindow : Form
             };
             view.Navigate(PlannerPage);
         }
-        catch (WebView2RuntimeNotFoundException) when (!IsDisposed && !Disposing)
+        catch (WebView2RuntimeNotFoundException error) when (!IsDisposed && !Disposing)
         {
+            Console.Error.WriteLine(error);
             MessageBox.Show(this,
                 "Install Microsoft Edge WebView2 Runtime, then open this app again.\n\n" +
                 "Download it from https://developer.microsoft.com/microsoft-edge/webview2/",
@@ -92,6 +93,7 @@ internal sealed class PlannerWindow : Form
         catch (Exception error)
         {
             if (IsDisposed || Disposing) return;
+            Console.Error.WriteLine(error);
             MessageBox.Show(this, "The planner could not start.\n\n" + error.Message,
                 Text, MessageBoxButtons.OK, MessageBoxIcon.Error);
             Close();
