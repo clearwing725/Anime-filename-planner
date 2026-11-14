@@ -43,7 +43,6 @@ try {
     $previousClipboard = [System.Windows.Forms.Clipboard]::GetDataObject()
     $clipboardSaved = $true
     $app = Start-Process -FilePath $Executable -WorkingDirectory (Split-Path $Executable) -PassThru
-    $process = New-PropertyCondition ($automation::ProcessIdProperty) $app.Id
     $window = Wait-For 'the main planner window' 20 {
         $app.Refresh()
         if ($app.HasExited) { throw "The planner exited with code $($app.ExitCode)." }
@@ -68,10 +67,9 @@ try {
     $download = Find-NamedElement $window 'Download .txt' ($types::Button)
     if (!$download) { throw 'The Download .txt button is missing.' }
     $download.GetCurrentPattern($invokePattern).Invoke()
-    $dialogCondition = [System.Windows.Automation.AndCondition]::new(
-        $process, (New-PropertyCondition ($automation::NameProperty) 'Save As'))
+    $dialogCondition = New-PropertyCondition ($automation::NameProperty) 'Save As'
     $dialog = Wait-For 'the Windows Save As dialog' 10 {
-        $automation::RootElement.FindFirst($scope::Children, $dialogCondition)
+        $window.FindFirst($scope::Descendants, $dialogCondition)
     }
     $editCondition = [System.Windows.Automation.AndCondition]::new(
         (New-PropertyCondition ($automation::AutomationIdProperty) '1001'),
