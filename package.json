@@ -1,0 +1,12 @@
+{
+  "name": "anime-filename-planner",
+  "private": true,
+  "version": "1.0.2",
+  "scripts": {
+    "test": "node --test tests/planner.test.cjs",
+    "test:windows": "node --test tests/windows.test.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
+}

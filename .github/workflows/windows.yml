@@ -1,0 +1,56 @@
+name: Windows build and tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Install test dependencies
+        run: |
+          npm ci --ignore-scripts
+          npx playwright install chromium
+      - name: Run browser tests
+        run: npm test
+      - name: Run export checks against shared app code
+        run: dotnet run --project tests/HostChecks/HostChecks.csproj --configuration Release
+      - name: Build the Windows application
+        run: dotnet publish Planner.csproj --configuration Release --output artifacts -p:TreatWarningsAsErrors=true
+      - name: Install WebView2 Runtime if missing or outdated
+        shell: pwsh
+        run: |
+          $client = 'Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
+          $paths = "HKLM:\SOFTWARE\WOW6432Node\$client", "HKCU:\SOFTWARE\$client"
+          $versions = @($paths | ForEach-Object { Get-ItemPropertyValue $_ -Name pv -ErrorAction SilentlyContinue })
+          if ($versions | Where-Object { [version]$_ -ge [version]'156.0.4314.42' }) { exit 0 }
+          $installer = Join-Path $env:RUNNER_TEMP 'MicrosoftEdgeWebview2Setup.exe'
+          Invoke-WebRequest -Uri 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile $installer
+          $setup = Start-Process -FilePath $installer -ArgumentList '/silent', '/install' -Wait -PassThru
+          if ($setup.ExitCode -ne 0) { throw "WebView2 installation failed with exit code $($setup.ExitCode)." }
+      - name: Open and test the Windows executable
+        run: npm run test:windows
+      - name: Make the tested Windows app available for download
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: Anime-Filename-Planner-Windows-x64
+          path: artifacts/Anime-Filename-Planner.exe
+          if-no-files-found: error
+          retention-days: 30

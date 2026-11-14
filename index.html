@@ -1,0 +1,615 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-Yagde8dD5/ZdyG97BiSEydDSlql0EnMTCDfziEdvyN0='; style-src 'sha256-EOKyzHr61PSPAA+HE6DBVKVLtPOOvH6xwEmZgTQEsCA='; base-uri 'none'; form-action 'none'">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Plan, check, and export season-based anime filenames for Plex and Jellyfin.">
+  <meta name="theme-color" content="#f7f4ee">
+  <title>Anime Filename Planner</title>
+  <style>:root {
+  color-scheme: light;
+  --canvas: #f7f4ee;
+  --paper: #fffcf8;
+  --white: #fff;
+  --ink: #252123;
+  --muted: #625858;
+  --line: #e4dad3;
+  --accent: #971f3c;
+  --accent-dark: #74162d;
+  --rose: #faeef0;
+  --mono: ui-monospace, "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  --sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  min-width: 280px;
+  color: var(--ink);
+  background: var(--canvas);
+  font: 15px/1.5 var(--sans);
+}
+
+button, input, textarea { font: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: default; opacity: .48; }
+a { color: var(--accent-dark); text-underline-offset: .2em; }
+a:hover { text-decoration-thickness: 2px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+p, h1, h2, h3 { margin: 0; }
+
+.page { max-width: 1120px; padding: 0 30px; margin: auto; }
+.masthead { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 74px; border-bottom: 1px solid var(--line); }
+.brand { display: flex; align-items: center; gap: 11px; font-weight: 740; letter-spacing: -.02em; }
+.brand-mark { width: 33px; height: 33px; flex: 0 0 auto; color: var(--accent); }
+.badges { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.badges span { border: 1px solid var(--line); padding: 3px 9px; border-radius: 999px; color: var(--muted); font-weight: 630; font-size: .75rem; }
+
+.intro { padding: 36px 0 32px; }
+.eyebrow { color: var(--accent-dark); font: 700 .71rem/1.35 var(--mono); letter-spacing: .10em; text-transform: uppercase; }
+h1 { margin: 5px 0 6px; font-size: clamp(2.45rem, 5.8vw, 4.1rem); line-height: 1.04; letter-spacing: -.075em; }
+.intro > p:last-child { color: var(--muted); font-size: .98rem; margin-top: 12px; }
+
+.workspace { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.19fr); align-items: start; gap: 18px; }
+.panel { padding: 24px; border: 1px solid var(--line); border-radius: 17px; background: var(--paper); box-shadow: 0 3px 10px #3b1b0e06; }
+.output { border-top: 3px solid var(--accent); padding-top: 22px; }
+.panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 19px; }
+.step { color: var(--muted); }
+.step span { color: var(--accent); }
+h2 { margin-top: 3px; font-size: 1.37rem; letter-spacing: -.043em; line-height: 1.2; }
+.quiet { color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: 8px; padding: 5px 10px; font-size: .81rem; font-weight: 620; }
+
+form { display: grid; gap: 13px; }
+.field { display: grid; gap: 5px; align-content: start; min-width: 0; }
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.field-row:has(> [hidden]) { grid-template-columns: 1fr; }
+label, legend { font-size: .84rem; font-weight: 690; }
+.optional { font-weight: 480; font-size: .73rem; color: var(--muted); margin-left: 4px; white-space: nowrap; }
+input:not([type="radio"]), textarea { width: 100%; border: 1px solid #d9cdc6; border-radius: 8px; background: var(--white); color: var(--ink); padding: 7px 10px; min-height: 39px; font-size: 1rem; }
+textarea { min-height: 50px; resize: vertical; }
+input::placeholder, textarea::placeholder { color: #796e6c; opacity: 1; }
+[aria-invalid="true"] { border-color: var(--accent) !important; }
+.hint { color: var(--muted); font-size: .75rem; line-height: 1.42; }
+fieldset { border: 0; padding: 0; margin: 0; }
+legend { padding: 0; margin-bottom: 5px; }
+.segmented { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; padding: 3px; background: #f3ebe6; border: 1px solid var(--line); border-radius: 9px; }
+.segmented label { display: grid; position: relative; cursor: pointer; }
+.segmented input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.segmented span { padding: 5px 4px; border-radius: 6px; text-align: center; color: var(--muted); }
+.segmented input:checked + span { background: var(--white); color: var(--accent-dark); box-shadow: 0 1px 3px #3b1b0e19; }
+.segmented input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: -1px; }
+.settings-footer { border-top: 1px solid var(--line); margin-top: 15px; padding-top: 11px; }
+.example { display: inline-flex; gap: 6px; align-items: center; padding: 4px 2px; border: 0; background: transparent; color: var(--accent-dark); font-weight: 670; font-size: .83rem; }
+.example:hover { text-decoration: underline; text-underline-offset: .2em; }
+.example svg { width: 16px; height: 16px; fill: currentColor; }
+
+.folder { display: flex; gap: 11px; align-items: flex-start; background: var(--rose); border: 1px solid #edd6db; border-radius: 10px; padding: 12px; margin-bottom: 15px; }
+.folder > svg { width: 21px; height: 21px; color: var(--accent); flex: 0 0 auto; }
+.folder .eyebrow { font-size: .65rem; }
+#folder { margin-top: 3px; font: .81rem/1.45 var(--mono); overflow-wrap: anywhere; }
+.file-list { overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: var(--white); }
+.file-list-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 12px; border-bottom: 1px solid var(--line); background: #f9f5f1; color: var(--muted); font: 670 .72rem/1.5 var(--mono); text-transform: uppercase; letter-spacing: .07em; }
+#count { color: var(--accent-dark); letter-spacing: 0; text-transform: none; }
+#filenames { margin: 0; padding: 0; list-style: none; max-height: 345px; overflow: auto; }
+#filenames li { display: grid; grid-template-columns: 2.3em minmax(0, 1fr); gap: 8px; align-items: baseline; padding: 10px 12px; }
+#filenames li + li { border-top: 1px solid #f0e8e2; }
+#filenames .index { color: var(--muted); font: .71rem/1.45 var(--mono); user-select: none; }
+#filenames code { font: .86rem/1.55 var(--mono); overflow-wrap: anywhere; white-space: pre-wrap; }
+#empty-list { color: var(--muted); padding: 13px 12px; font-size: .86rem; }
+
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.actions button { display: inline-flex; gap: 7px; align-items: center; padding: 7px 11px; border: 1px solid transparent; border-radius: 8px; font-size: .82rem; font-weight: 680; }
+.actions svg, .notice > svg, .folder > svg { fill: none; stroke: currentColor; stroke-width: 1.55; stroke-linecap: round; stroke-linejoin: round; }
+.actions svg { width: 16px; height: 16px; }
+.actions .primary { background: var(--accent); color: var(--white); }
+.actions .primary:hover:enabled { background: var(--accent-dark); }
+.actions .secondary { border-color: var(--line); background: var(--white); color: var(--ink); }
+.actions .secondary:hover:enabled, .quiet:hover { background: #f3ebe6; }
+.action-status { min-height: 23px; padding-top: 4px; color: var(--muted); font-size: .76rem; }
+.clipboard-buffer { position: fixed; top: 0; left: -10000px; }
+
+.notice { display: flex; gap: 9px; border: 1px solid var(--line); border-radius: 10px; background: #f8f3ee; padding: 11px 12px; }
+.notice[data-state="warning"] { background: #fff6e6; border-color: #ead6ae; }
+.notice[data-state="error"] { background: var(--rose); border-color: #edd6db; }
+.notice > svg { color: var(--accent-dark); width: 17px; height: 17px; flex: 0 0 auto; margin-top: 2px; }
+.notice h3 { font-size: .86rem; }
+.notice p, .notice li { color: var(--muted); font-size: .79rem; line-height: 1.49; }
+.notice ul { margin: 3px 0 0; padding-left: 17px; }
+.notice li + li { margin-top: 3px; }
+.notice .metadata, .notice .example-reference { margin-top: 4px; }
+
+footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px 20px; border-top: 1px solid var(--line); margin: 24px 0 0; padding: 13px 0 23px; color: var(--muted); font-size: .8rem; }
+footer div { display: flex; gap: 7px 16px; flex-wrap: wrap; }
+
+@media (max-width: 740px) {
+  .page { padding: 0 18px; }
+  .workspace { grid-template-columns: 1fr; }
+  .intro { padding: 28px 0 24px; }
+}
+@media (max-width: 365px) {
+  .page { padding: 0 12px; }
+  .panel { padding: 16px; }
+  .brand { font-size: .85rem; }
+  .badges span { padding: 2px 5px; }
+  .field-row { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+  <div class="page">
+    <header class="masthead">
+      <div class="brand">
+        <svg class="brand-mark" viewBox="0 0 36 36" aria-hidden="true"><rect width="36" height="36" rx="9" fill="currentColor"/><path d="M10 11h16v14H10zM14 11v14m8-14v14M10 15h4m-4 6h4m8-6h4m-4 6h4m-12-3h8" fill="none" stroke="#fff9f5" stroke-width="1.4" stroke-linejoin="round"/></svg>
+        <span>Anime Filename Planner</span>
+      </div>
+      <div class="badges" aria-label="Compatible with Plex and Jellyfin"><span>Plex</span><span>Jellyfin</span></div>
+    </header>
+
+    <main>
+      <section class="intro" aria-labelledby="page-title">
+        <p class="eyebrow">Media library utility</p>
+        <h1 id="page-title">Anime filename planner</h1>
+        <p>Build a filename list for a whole season, a few episodes, or a double feature in one file.</p>
+      </section>
+
+      <div class="workspace">
+        <section class="panel settings" aria-labelledby="settings-title">
+          <div class="panel-heading">
+            <div><p class="eyebrow step"><span>01</span> &nbsp; Input</p><h2 id="settings-title">Episode details</h2></div>
+            <button class="quiet" type="button" id="reset">Clear</button>
+          </div>
+
+          <form id="planner" novalidate autocomplete="off">
+            <div class="field">
+              <label for="series">Series name</label>
+              <input id="series" name="series" type="text" placeholder="e.g. InuYasha (2000)" aria-describedby="series-hint">
+              <p class="hint" id="series-hint">Include the release year if you use it in your library.</p>
+            </div>
+
+            <div class="field-row">
+              <div class="field">
+                <label for="season">Season</label>
+                <input id="season" name="season" type="text" inputmode="numeric" placeholder="e.g. 06">
+              </div>
+              <div class="field">
+                <label for="extension">File extension</label>
+                <input id="extension" name="extension" type="text" placeholder="e.g. mkv" list="extensions" spellcheck="false">
+                <datalist id="extensions"><option value="mkv"><option value="mp4"><option value="m4v"><option value="avi"><option value="webm"><option value="ts"></datalist>
+              </div>
+            </div>
+
+            <fieldset class="field numbering">
+              <legend>Numbering in your source files</legend>
+              <div class="segmented">
+                <label><input type="radio" name="mode" value="season" checked><span>Within season</span></label>
+                <label><input type="radio" name="mode" value="absolute"><span>Absolute</span></label>
+              </div>
+              <p class="hint" id="mode-hint">Episode numbers start at 1 for each season.</p>
+            </fieldset>
+
+            <div id="bounds" class="field-row">
+              <div class="field" id="start-field" hidden>
+                <label for="season-start">Season starts at</label>
+                <input id="season-start" name="seasonStart" type="text" inputmode="numeric" placeholder="e.g. 139" aria-describedby="mode-hint">
+              </div>
+              <div class="field">
+                <label for="season-end"><span id="end-label">Last episode in season</span> <span class="optional">Optional</span></label>
+                <input id="season-end" name="seasonEnd" type="text" inputmode="numeric" placeholder="e.g. 29" aria-describedby="mode-hint">
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="range">Episode range</label>
+              <input id="range" name="range" type="text" placeholder="e.g. 01–12 or 07" aria-describedby="range-hint" spellcheck="false">
+              <p class="hint" id="range-hint">One number or an inclusive range.</p>
+            </div>
+            <div class="field">
+              <label for="combined">Combined episodes <span class="optional">Optional</span></label>
+              <textarea id="combined" name="combined" rows="2" placeholder="e.g. 04–05, 11–12" aria-describedby="combined-hint" spellcheck="false"></textarea>
+              <p class="hint" id="combined-hint">Enter one range per file. Separate ranges with a comma or a new line.</p>
+            </div>
+          </form>
+
+          <div class="settings-footer">
+            <button class="example" type="button" id="load-example">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 4l8 6-8 6z"/></svg>
+              Load InuYasha example
+            </button>
+          </div>
+        </section>
+
+        <section class="panel output" aria-labelledby="output-title">
+          <div class="panel-heading">
+            <div><p class="eyebrow step"><span>02</span> &nbsp; Output</p><h2 id="output-title">Filename preview</h2></div>
+          </div>
+
+          <div class="folder">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></svg>
+            <div><p class="eyebrow">Suggested folder</p><p id="folder">—</p></div>
+          </div>
+
+          <div class="file-list">
+            <div class="file-list-heading"><span>Filenames</span><span id="count" role="status">0 files</span></div>
+            <ol id="filenames" aria-label="Generated filenames" hidden></ol>
+            <p id="empty-list">Enter a series name and episode range to preview filenames.</p>
+          </div>
+
+          <div class="actions">
+            <button id="copy" class="primary" type="button" disabled>
+              <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1.6"/><path d="M13 7V4.6A1.6 1.6 0 0 0 11.4 3H4.6A1.6 1.6 0 0 0 3 4.6v6.8A1.6 1.6 0 0 0 4.6 13H7"/></svg>
+              Copy list
+            </button>
+            <button id="download" class="secondary" type="button" disabled>
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v9m-3.5-3.5L10 12l3.5-3.5M4 13v3a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-3"/></svg>
+              Download .txt
+            </button>
+          </div>
+          <p class="action-status" id="action-status" role="status"></p>
+
+          <aside class="notice" id="notice" aria-labelledby="notice-title">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><path d="M10 9v4m0-6h.01"/></svg>
+            <div>
+              <h3 id="notice-title">Numbering check</h3>
+              <div id="notice-content" aria-live="polite"></div>
+              <p class="metadata">Use the episode order selected in your media server. The same episode can have different season numbers across metadata providers.</p>
+              <p class="example-reference" id="example-reference" hidden><a href="https://www.tvmaze.com/shows/4247/inuyasha/episodes" target="_blank" rel="noopener noreferrer">InuYasha six-season listing ↗</a></p>
+            </div>
+          </aside>
+        </section>
+      </div>
+    </main>
+    <footer>
+      <span>TV episode naming references</span>
+      <div>
+        <a href="https://support.plex.tv/articles/naming-and-organizing-your-tv-show-files/" target="_blank" rel="noopener noreferrer">Plex naming guide ↗</a>
+        <a href="https://jellyfin.org/docs/general/server/media/shows/" target="_blank" rel="noopener noreferrer">Jellyfin naming guide ↗</a>
+      </div>
+    </footer>
+  </div>
+<script>
+const maxEpisode = 9999;
+const maxBatch = 500;
+const dash = /[-\u2010-\u2015\u2212]/g;
+const encoder = new TextEncoder();
+
+const example = {
+  series: "InuYasha (2000)",
+  season: "6",
+  extension: "mkv",
+  mode: "absolute",
+  seasonStart: "139",
+  seasonEnd: "167",
+  range: "166–167",
+  combined: "166–167",
+};
+
+function number(value, min, max) {
+  const trimmed = value.trim();
+  const parsed = trimmed.length <= String(max).length && /^\d+$/.test(trimmed) ? Number(trimmed) : NaN;
+  return parsed >= min && parsed <= max ? parsed : null;
+}
+
+function interval(value) {
+  if (value.length > 28) return null;
+  const match = /^(\d+)(?:\s*([-+])\s*(\d+))?$/.exec(value.trim().replace(dash, "-"));
+  if (!match) return null;
+  const first = number(match[1], 1, maxEpisode);
+  const last = number(match[3] ?? match[1], 1, maxEpisode);
+  if (first === null || last === null || first > last) return null;
+  if (match[2] === "+" && last !== first + 1) return null;
+  return { first, last, isPair: match[2] === "+" };
+}
+
+function safeSeries(value) {
+  let title = value.trim()
+    .replace(/[<>"?*\u0000-\u001f\u007f-\u009f\u061c\u200e\u200f\u2028-\u202e\u2066-\u2069\ud800-\udfff]/gu, "")
+    .replace(/\s*[:/\\|]+\s*/g, " - ")
+    .replace(/[.\s]+$/u, "")
+    .trimStart();
+  const stem = title.split(".", 1)[0].trimEnd();
+  if (/^(?:con|conin\$|conout\$|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])$/i.test(stem)) {
+    title = "_" + title;
+  }
+  return title;
+}
+
+function padded(value) {
+  return String(value).padStart(2, "0");
+}
+
+function plan(input) {
+  const errors = {};
+  const warnings = [];
+  const absolute = input.mode === "absolute";
+  const title = input.series.length <= 180 ? safeSeries(input.series) : "";
+  const season = number(input.season, 0, 99);
+  const seasonStart = absolute ? number(input.seasonStart, 1, maxEpisode) : 1;
+  const hasEnd = input.seasonEnd.trim() !== "";
+  const seasonEnd = hasEnd ? number(input.seasonEnd, 1, maxEpisode) : null;
+  const extension = input.extension.trim().replace(/^\./, "");
+  const batch = interval(input.range);
+
+  if (input.series.length > 180) {
+    errors.series = "Shorten the series name to 180 characters or fewer.";
+  } else if (!title) {
+    errors.series = "Enter a series name with at least one usable filename character.";
+  }
+  if (season === null) errors.season = "Enter a whole season number from 0 to 99.";
+  if (!/^[a-z0-9]{1,8}$/i.test(extension)) {
+    errors.extension = "Enter a file extension such as mkv or .mp4.";
+  }
+  if (seasonStart === null) errors.seasonStart = "Enter the first absolute episode of this season.";
+  if (hasEnd && seasonEnd === null) errors.seasonEnd = "Enter a last episode from 1 to 9999.";
+  if (seasonEnd !== null && seasonStart !== null && seasonEnd < seasonStart) {
+    errors.seasonEnd = "The season’s last episode must be at or after its first episode.";
+  }
+  if (!batch || batch.isPair) {
+    errors.range = "Enter one episode or an ascending range from 1 to 9999, such as 01–12.";
+  } else if (batch.last - batch.first + 1 > maxBatch) {
+    errors.range = "Plan up to 500 episodes at a time.";
+  } else if (
+    !errors.seasonEnd && (
+      (seasonStart !== null && batch.first < seasonStart) ||
+      (seasonEnd !== null && batch.last > seasonEnd)
+    )
+  ) {
+    errors.range = "The episode range goes outside the season boundaries you entered.";
+  }
+
+  const lastByFirst = new Map();
+  const occupied = new Set();
+  if (input.combined.length > 6000) errors.combined = "Shorten the combined episode list to 6,000 characters or fewer.";
+  const combinedParts = errors.combined ? [] : input.combined.split(/[,\r\n]+/);
+  for (const entry of combinedParts) {
+    const part = entry.trim();
+    if (!part) continue;
+    const group = interval(part);
+    if (!group || group.first === group.last) {
+      errors.combined = "Each combined file needs a range of at least two consecutive episodes, such as 04–05.";
+      break;
+    }
+    if (!batch || errors.range) continue;
+    if (group.first < batch.first || group.last > batch.last) {
+      errors.combined = "Combined episodes must be inside the episode range.";
+      break;
+    }
+    for (let episode = group.first; episode <= group.last; episode += 1) {
+      if (occupied.has(episode)) {
+        errors.combined = "Combined episode ranges overlap. An episode can belong to only one file.";
+        break;
+      }
+      occupied.add(episode);
+    }
+    if (errors.combined) break;
+    lastByFirst.set(group.first, group.last);
+  }
+
+  if (Object.keys(errors).length) return { errors, warnings, files: [], folder: "" };
+
+  if (title !== input.series.trim()) {
+    warnings.push("The series name was adjusted to fit Windows filename rules.");
+  }
+  if (/\bs\d{1,3}\s*e\d{1,4}\b/i.test(title)) {
+    warnings.push("The series name already contains a season and episode code. Check that it is part of the title.");
+  }
+  if (season === 0) warnings.push("Season 00 is for specials. Check their episode numbers in your metadata source.");
+  if (absolute) {
+    warnings.push(`Absolute episode ${seasonStart} becomes E01. Verify that this is the first episode in Season ${padded(season)} for your server’s episode order.`);
+    if (!hasEnd) warnings.push("Enter the last episode of the season to check whether this range crosses a season boundary.");
+  } else if (batch.last >= 100 && !hasEnd) {
+    warnings.push("This range includes an episode numbered 100 or higher. Check whether your source uses absolute numbering.");
+  }
+
+  const prefix = `${title} - S${padded(season)}`;
+  const prefixBytes = encoder.encode(prefix).length;
+  const fileExtension = `.${extension.toLowerCase()}`;
+  const files = [];
+  for (let episode = batch.first; episode <= batch.last;) {
+    const last = lastByFirst.get(episode) ?? episode;
+    const firstCode = `E${padded(episode - seasonStart + 1)}`;
+    const lastCode = last === episode ? "" : `-E${padded(last - seasonStart + 1)}`;
+    const suffix = `${firstCode}${lastCode}${fileExtension}`;
+    if (prefixBytes + suffix.length > 255) {
+      errors.series = "Shorten the series name so every filename fits within 255 bytes.";
+      return { errors, warnings, files: [], folder: "" };
+    }
+    files.push(prefix + suffix);
+    episode = last + 1;
+  }
+  return { errors, warnings, files, folder: `${title} / Season ${padded(season)}` };
+}
+
+
+const byId = id => document.getElementById(id);
+const form = byId("planner");
+const fields = form.elements;
+const list = byId("filenames");
+const empty = byId("empty-list");
+const count = byId("count");
+const notice = byId("notice");
+const noticeTitle = byId("notice-title");
+const noticeContent = byId("notice-content");
+const exampleReference = byId("example-reference");
+const actionStatus = byId("action-status");
+const copy = byId("copy");
+const download = byId("download");
+const desktop = window.chrome?.webview;
+
+let result;
+let previousMode;
+let renderFrame = null;
+const seasonEnds = { absolute: "", season: "" };
+
+function renderNow() {
+  if (renderFrame !== null) cancelAnimationFrame(renderFrame);
+  renderFrame = null;
+  render();
+}
+
+function load(input) {
+  seasonEnds.absolute = "";
+  seasonEnds.season = "";
+  for (const [field, value] of Object.entries(input)) fields.namedItem(field).value = value;
+  previousMode = input.mode;
+  renderNow();
+}
+
+function render() {
+  const input = Object.fromEntries(new FormData(form));
+  const absolute = input.mode === "absolute";
+  byId("start-field").hidden = !absolute;
+  byId("end-label").textContent = absolute ? "Season ends at" : "Last episode in season";
+  byId("season-end").placeholder = absolute ? "e.g. 167" : "e.g. 29";
+  byId("range").placeholder = absolute ? "e.g. 166–167" : "e.g. 01–12 or 07";
+  byId("combined").placeholder = absolute ? "e.g. 166–167" : "e.g. 04–05, 11–12";
+  byId("mode-hint").textContent = absolute
+    ? "Numbers run across the series. Enter the first absolute episode of this season to convert it to E01."
+    : "Episode numbers start at 1 for each season.";
+
+  const editing = [input.series, input.range, input.combined].some(value => value.trim());
+  const previousFiles = result?.files ?? [];
+  result = editing ? plan(input) : { files: [], folder: "", warnings: [], errors: {} };
+  for (const field of form.querySelectorAll("input[name]:not([type=radio]), textarea[name]")) {
+    if (result.errors[field.name]) {
+      field.setAttribute("aria-invalid", "true");
+      field.setAttribute("aria-errormessage", `error-${field.name}`);
+    } else {
+      field.removeAttribute("aria-invalid");
+      field.removeAttribute("aria-errormessage");
+    }
+  }
+
+  const hasFiles = result.files.length > 0;
+  const errors = Object.entries(result.errors);
+  list.hidden = !hasFiles;
+  empty.hidden = hasFiles;
+  empty.textContent = errors.length ? "Resolve the flagged inputs to preview filenames." : "Enter a series name and episode range to preview filenames.";
+  byId("folder").textContent = result.folder || "—";
+  const countLabel = `${result.files.length} ${result.files.length === 1 ? "file" : "files"}`;
+  if (count.textContent !== countLabel) count.textContent = countLabel;
+  copy.disabled = !hasFiles;
+  download.disabled = !hasFiles;
+  actionStatus.textContent = "";
+
+  if (previousFiles.length !== result.files.length ||
+      result.files.some((filename, index) => filename !== previousFiles[index])) {
+    const rows = result.files.map((filename, index) => {
+      const row = document.createElement("li");
+      const number = document.createElement("span");
+      number.className = "index";
+      number.setAttribute("aria-hidden", "true");
+      number.textContent = String(index + 1).padStart(2, "0");
+      const code = document.createElement("code");
+      code.textContent = filename;
+      row.append(number, code);
+      return row;
+    });
+    list.replaceChildren(...rows);
+    list.scrollTop = 0;
+  }
+  notice.dataset.state = errors.length ? "error" : result.warnings.length ? "warning" : "info";
+  noticeTitle.textContent = errors.length ? "Check your inputs" : "Numbering check";
+  noticeContent.replaceChildren();
+  const messages = errors.length ? errors : result.warnings.map(message => ["", message]);
+  if (messages.length) {
+    const items = document.createElement("ul");
+    for (const [field, message] of messages) {
+      const item = document.createElement("li");
+      if (field) item.id = `error-${field}`;
+      item.textContent = message;
+      items.append(item);
+    }
+    noticeContent.append(items);
+  }
+  exampleReference.hidden = !(hasFiles && absolute && /^inuyasha(?: \(2000\))?$/i.test(input.series.trim())
+    && Number(input.season) === 6 && Number(input.seasonStart) === 139);
+}
+
+form.addEventListener("submit", event => event.preventDefault());
+form.addEventListener("input", event => {
+  if (event.target.name === "mode") {
+    const mode = fields.namedItem("mode").value;
+    const end = fields.namedItem("seasonEnd");
+    seasonEnds[previousMode] = end.value;
+    end.value = seasonEnds[mode];
+    previousMode = mode;
+  }
+  if (renderFrame === null) renderFrame = requestAnimationFrame(renderNow);
+});
+byId("load-example").addEventListener("click", () => load(example));
+byId("reset").addEventListener("click", () => {
+  load({ ...example, series: "", season: "1", mode: "season", seasonStart: "", seasonEnd: "", range: "", combined: "" });
+  byId("series").focus();
+});
+
+
+async function copyInBrowser(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    // Some browsers restrict the Clipboard API on local files.
+    const previousFocus = document.activeElement;
+    const buffer = document.createElement("textarea");
+    buffer.className = "clipboard-buffer";
+    buffer.value = text;
+    buffer.readOnly = true;
+    document.body.append(buffer);
+    try {
+      buffer.select();
+      if (!document.execCommand("copy")) throw new Error("Copy failed.");
+    } finally {
+      buffer.remove();
+      previousFocus?.focus({ preventScroll: true });
+    }
+  }
+}
+
+function downloadInBrowser(text) {
+  const url = URL.createObjectURL(new Blob([text], { type: "text/plain;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "anime-filenames.txt";
+  document.body.append(link);
+  try {
+    link.click();
+  } finally {
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+}
+
+async function exportList(action) {
+  if (renderFrame !== null) renderNow();
+  if (!result.files.length) return;
+  const files = result.files;
+  const text = files.join("\n");
+  try {
+    if (desktop) {
+      desktop.postMessage({ action, text });
+    } else if (action === "copy") {
+      await copyInBrowser(text);
+      if (result.files === files) actionStatus.textContent = "Filename list copied.";
+    } else {
+      downloadInBrowser(text);
+      actionStatus.textContent = "Download started.";
+    }
+  } catch {
+    if (result.files === files) {
+      actionStatus.textContent = action === "copy"
+        ? "The list could not be copied. Try downloading it instead."
+        : "The export could not start. Please try again.";
+    }
+  }
+}
+
+desktop?.addEventListener("message", event => {
+  if (typeof event.data?.status === "string") actionStatus.textContent = event.data.status;
+});
+copy.addEventListener("click", () => exportList("copy"));
+download.addEventListener("click", () => exportList("save"));
+load(example);
+</script></body>
+</html>
