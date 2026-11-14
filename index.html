@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-Yagde8dD5/ZdyG97BiSEydDSlql0EnMTCDfziEdvyN0='; style-src 'sha256-EOKyzHr61PSPAA+HE6DBVKVLtPOOvH6xwEmZgTQEsCA='; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-ZpHgXT3TEQJpxDzYV0XBwjTOKwamIXxMwUIJEHK4i6Q='; style-src 'sha256-EOKyzHr61PSPAA+HE6DBVKVLtPOOvH6xwEmZgTQEsCA='; base-uri 'none'; form-action 'none'">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Plan, check, and export season-based anime filenames for Plex and Jellyfin.">
   <meta name="theme-color" content="#f7f4ee">
@@ -238,6 +238,7 @@ footer div { display: flex; gap: 7px 16px; flex-wrap: wrap; }
           </div>
 
           <div class="actions">
+            <button id="rename" class="primary" type="button" hidden disabled>Rename files</button>
             <button id="copy" class="primary" type="button" disabled>
               <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1.6"/><path d="M13 7V4.6A1.6 1.6 0 0 0 11.4 3H4.6A1.6 1.6 0 0 0 3 4.6v6.8A1.6 1.6 0 0 0 4.6 13H7"/></svg>
               Copy list
@@ -437,6 +438,8 @@ const actionStatus = byId("action-status");
 const copy = byId("copy");
 const download = byId("download");
 const desktop = window.chrome?.webview;
+const rename = byId("rename");
+rename.hidden = !desktop;
 
 let result;
 let previousMode;
@@ -490,6 +493,7 @@ function render() {
   byId("folder").textContent = result.folder || "—";
   const countLabel = `${result.files.length} ${result.files.length === 1 ? "file" : "files"}`;
   if (count.textContent !== countLabel) count.textContent = countLabel;
+  rename.disabled = !hasFiles;
   copy.disabled = !hasFiles;
   download.disabled = !hasFiles;
   actionStatus.textContent = "";
@@ -608,6 +612,7 @@ async function exportList(action) {
 desktop?.addEventListener("message", event => {
   if (typeof event.data?.status === "string") actionStatus.textContent = event.data.status;
 });
+rename.addEventListener("click", () => exportList("rename"));
 copy.addEventListener("click", () => exportList("copy"));
 download.addEventListener("click", () => exportList("save"));
 load(example);

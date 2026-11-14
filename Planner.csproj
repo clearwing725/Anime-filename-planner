@@ -20,6 +20,7 @@
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4314.35" />
     <Compile Include="Program.cs" />
     <Compile Include="PlannerExport.cs" />
+    <Compile Include="PlannerRename.cs" />
     <EmbeddedResource Include="index.html" LogicalName="Planner.index.html" />
   </ItemGroup>
   <Target Name="RemoveUnusedWpfReference" BeforeTargets="ResolveAssemblyReferences">
