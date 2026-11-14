@@ -209,7 +209,7 @@ internal sealed class PlannerWindow : Form
 
         // Match Explorer's numeric order so episode 2 comes before episode 10.
         var sources = picker.FileNames.OrderBy(Path.GetFileName,
-            System.Collections.Generic.Comparer<string>.Create((left, right) =>
+            System.Collections.Generic.Comparer<string?>.Create((left, right) =>
                 StrCmpLogicalW(left ?? "", right ?? "")))
             .ThenBy(file => file, StringComparer.Ordinal).ToArray();
         var moves = PlannerRename.Preview(sources, names);
