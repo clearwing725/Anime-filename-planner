@@ -98,8 +98,17 @@ try {
         $window.FindFirst($scope::Descendants,
             (New-PropertyCondition ($automation::NameProperty) 'Select 1 file to rename'))
     }
-    $picker.FindFirst($scope::Descendants, $editCondition).GetCurrentPattern($valuePattern).SetValue($original)
-    (Find-NamedElement $picker 'Open' ($types::Button)).GetCurrentPattern($invokePattern).Invoke()
+    $openEdit = Find-NamedElement $picker 'File name:' ($types::Edit)
+    $open = Find-NamedElement $picker 'Open' ($types::Button)
+    if ($openEdit -and $open) {
+        $openEdit.GetCurrentPattern($valuePattern).SetValue($original)
+        $open.GetCurrentPattern($invokePattern).Invoke()
+    } else {
+        $foreground = New-Object -ComObject WScript.Shell
+        if (!$foreground.AppActivate('Select 1 file to rename')) { throw 'Could not focus the file picker.' }
+        [System.Windows.Forms.Clipboard]::SetText($original)
+        [System.Windows.Forms.SendKeys]::SendWait('%n^a^v{ENTER}')
+    }
     $apply = Wait-For 'the rename preview' 10 { Find-NamedElement $window 'Apply renames' ($types::Button) }
     if (!(Test-Path -LiteralPath $original -PathType Leaf)) { throw 'Preview changed the original file.' }
     $apply.GetCurrentPattern($invokePattern).Invoke()
