@@ -26,7 +26,7 @@ internal static class PlannerExport
 
             string? action = actionValue.GetString();
             string? text = textValue.GetString();
-            return action is ("copy" or "save") && !string.IsNullOrWhiteSpace(text) &&
+            return action is ("copy" or "save" or "rename") && !string.IsNullOrWhiteSpace(text) &&
                 !text.Contains('\0') && ExportEncoding.GetByteCount(text) <= MaxExportBytes
                 ? (action, text)
                 : null;

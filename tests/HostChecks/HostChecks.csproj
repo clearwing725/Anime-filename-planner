@@ -6,5 +6,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../PlannerExport.cs" Link="PlannerExport.cs" />
+    <Compile Include="../../PlannerRename.cs" Link="PlannerRename.cs" />
   </ItemGroup>
 </Project>

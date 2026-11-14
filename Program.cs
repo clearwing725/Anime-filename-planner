@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text.Json;
@@ -144,6 +145,12 @@ internal sealed class PlannerWindow : Form
                 return;
             }
 
+            if (action == "rename")
+            {
+                RenameFiles(text.Split('\n'));
+                return;
+            }
+
             using var picker = new SaveFileDialog
             {
                 FileName = "anime-filenames.txt",
@@ -173,13 +180,84 @@ internal sealed class PlannerWindow : Form
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException)
         {
-            ReportStatus("The file could not be saved. Try a different folder.");
+            if (action == "rename")
+            {
+                ReportStatus("Rename could not be completed.");
+                MessageBox.Show(this, error.Message, "Rename files", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            else
+            {
+                ReportStatus("The file could not be saved. Try a different folder.");
+            }
         }
         finally
         {
             handlingAction = false;
         }
     }
+
+    private void RenameFiles(string[] names)
+    {
+        using var picker = new OpenFileDialog
+        {
+            Title = $"Select {names.Length} {(names.Length == 1 ? "file" : "files")} to rename",
+            Multiselect = true,
+            RestoreDirectory = true,
+            DereferenceLinks = false
+        };
+        if (picker.ShowDialog(this) != DialogResult.OK) return;
+
+        // Match Explorer's numeric order so episode 2 comes before episode 10.
+        var sources = picker.FileNames.OrderBy(Path.GetFileName,
+            System.Collections.Generic.Comparer<string?>.Create((left, right) =>
+                StrCmpLogicalW(left ?? "", right ?? "")))
+            .ThenBy(file => file, StringComparer.Ordinal).ToArray();
+        var moves = PlannerRename.Preview(sources, names);
+
+        using var preview = new Form
+        {
+            Text = "Review file renames",
+            Size = new Size(850, 460),
+            MinimumSize = new Size(500, 280),
+            StartPosition = FormStartPosition.CenterParent,
+            ShowInTaskbar = false,
+            MinimizeBox = false
+        };
+        using var rows = new DataGridView
+        {
+            Dock = DockStyle.Fill,
+            ReadOnly = true,
+            AllowUserToAddRows = false,
+            AllowUserToDeleteRows = false,
+            RowHeadersVisible = false,
+            AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
+        };
+        rows.Columns.Add("current", "Current filename");
+        rows.Columns.Add("proposed", "New filename");
+        foreach (DataGridViewColumn column in rows.Columns)
+            column.SortMode = DataGridViewColumnSortMode.NotSortable;
+        foreach (var move in moves)
+            rows.Rows.Add(Path.GetFileName(move.Source), Path.GetFileName(move.Destination));
+
+        using var buttons = new FlowLayoutPanel { Dock = DockStyle.Bottom, AutoSize = true,
+            FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(8) };
+        using var cancel = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, AutoSize = true };
+        using var rename = new Button { Text = "Apply renames", DialogResult = DialogResult.OK, AutoSize = true };
+        buttons.Controls.Add(cancel);
+        buttons.Controls.Add(rename);
+        preview.Controls.Add(rows);
+        preview.Controls.Add(buttons);
+        preview.CancelButton = cancel;
+        preview.ActiveControl = cancel;
+        if (preview.ShowDialog(this) != DialogResult.OK) return;
+
+        int count = PlannerRename.Apply(PlannerRename.Preview(sources, names));
+        ReportStatus(count == 0 ? "The selected files already have these names."
+            : $"Renamed {count} {(count == 1 ? "file" : "files")}.");
+    }
+
+    [DllImport("shlwapi.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
+    private static extern int StrCmpLogicalW(string left, string right);
 
     private void ReportStatus(string text)
     {

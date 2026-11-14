@@ -88,6 +88,35 @@ try {
     Wait-For 'the exported text file' 10 { Test-Path -LiteralPath $destination -PathType Leaf } | Out-Null
     if ([System.IO.File]::ReadAllText($destination) -cne $expected) { throw 'The exported filename was incorrect.' }
     Write-Output 'PASS: The native Windows Save dialog writes the expected text.'
+
+    $original = Join-Path $profile 'InuYasha 166-167.mkv'
+    $renamed = Join-Path $profile $expected
+    [System.IO.File]::WriteAllText($original, 'sample video contents')
+    $rename = Find-NamedElement $window 'Rename files' ($types::Button)
+    $rename.GetCurrentPattern($invokePattern).Invoke()
+    $picker = Wait-For 'the file selection dialog' 10 {
+        $window.FindFirst($scope::Descendants,
+            (New-PropertyCondition ($automation::NameProperty) 'Select 1 file to rename'))
+    }
+    $openEdit = Find-NamedElement $picker 'File name:' ($types::Edit)
+    $open = Find-NamedElement $picker 'Open' ($types::Button)
+    if ($openEdit -and $open) {
+        $openEdit.GetCurrentPattern($valuePattern).SetValue($original)
+        $open.GetCurrentPattern($invokePattern).Invoke()
+    } else {
+        $foreground = New-Object -ComObject WScript.Shell
+        if (!$foreground.AppActivate('Select 1 file to rename')) { throw 'Could not focus the file picker.' }
+        [System.Windows.Forms.Clipboard]::SetText($original)
+        [System.Windows.Forms.SendKeys]::SendWait('%n^a^v{ENTER}')
+    }
+    $apply = Wait-For 'the rename preview' 10 { Find-NamedElement $window 'Apply renames' ($types::Button) }
+    if (!(Test-Path -LiteralPath $original -PathType Leaf)) { throw 'Preview changed the original file.' }
+    $apply.GetCurrentPattern($invokePattern).Invoke()
+    Wait-For 'the renamed media file' 10 { Test-Path -LiteralPath $renamed -PathType Leaf } | Out-Null
+    if ((Test-Path -LiteralPath $original) -or [System.IO.File]::ReadAllText($renamed) -cne 'sample video contents') {
+        throw 'The original file was not renamed in place with its contents intact.'
+    }
+    Write-Output 'PASS: The Windows app renames a selected media file in place after preview.'
 } catch {
     if ($window) {
         $window.FindAll($scope::Subtree, [System.Windows.Automation.Condition]::TrueCondition) |

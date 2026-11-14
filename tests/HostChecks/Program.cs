@@ -46,6 +46,33 @@ internal static class HostChecks
             catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
             Check(Directory.GetFileSystemEntries(folder.FullName).Length == 2 && Directory.Exists(blocked),
                 "cleans up after a failed replace");
+
+            string first = Path.Combine(folder.FullName, "01.mkv");
+            string second = Path.Combine(folder.FullName, "02.mkv");
+            File.WriteAllText(first, "first video");
+            File.WriteAllText(second, "second video");
+            var moves = PlannerRename.Preview([first, second], [sample, "Next.mkv"]);
+            Check(File.Exists(first) && File.Exists(second), "preview leaves original files in place");
+            File.WriteAllText(moves[1].Destination, "existing video");
+            try
+            {
+                PlannerRename.Preview([first, second], [sample, "Next.mkv"]);
+                throw new Exception("Expected destination conflict");
+            }
+            catch (IOException) { }
+            try
+            {
+                PlannerRename.Apply(moves);
+                throw new Exception("Expected rename failure");
+            }
+            catch (IOException) { }
+            Check(File.ReadAllText(first) == "first video" && File.ReadAllText(second) == "second video" &&
+                File.ReadAllText(moves[1].Destination) == "existing video" && !File.Exists(moves[0].Destination),
+                "restores earlier moves when a later destination appears");
+            File.Delete(moves[1].Destination);
+            Check(PlannerRename.Apply(moves) == 2 && !File.Exists(first) && !File.Exists(second) &&
+                File.ReadAllText(moves[0].Destination) == "first video" &&
+                File.ReadAllText(moves[1].Destination) == "second video", "renames files in place and preserves contents");
         }
         finally
         {
