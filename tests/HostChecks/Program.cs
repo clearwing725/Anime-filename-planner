@@ -43,7 +43,7 @@ internal static class HostChecks
                 SaveExport(blocked, updated);
                 throw new Exception("Expected export failure");
             }
-            catch (IOException) { }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
             Check(Directory.GetFileSystemEntries(folder.FullName).Length == 2 && Directory.Exists(blocked),
                 "cleans up after a failed replace");
         }
