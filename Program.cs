@@ -205,7 +205,11 @@ internal sealed class PlannerWindow : Form
             RestoreDirectory = true,
             DereferenceLinks = false
         };
-        if (picker.ShowDialog(this) != DialogResult.OK) return;
+        if (picker.ShowDialog(this) != DialogResult.OK)
+        {
+            ReportStatus("Rename canceled.");
+            return;
+        }
 
         // Match Explorer's numeric order so episode 2 comes before episode 10.
         var sources = picker.FileNames.OrderBy(Path.GetFileName,
@@ -249,7 +253,11 @@ internal sealed class PlannerWindow : Form
         preview.Controls.Add(buttons);
         preview.CancelButton = cancel;
         preview.ActiveControl = cancel;
-        if (preview.ShowDialog(this) != DialogResult.OK) return;
+        if (preview.ShowDialog(this) != DialogResult.OK)
+        {
+            ReportStatus("Rename canceled.");
+            return;
+        }
 
         int count = PlannerRename.Apply(PlannerRename.Preview(sources, names));
         ReportStatus(count == 0 ? "The selected files already have these names."

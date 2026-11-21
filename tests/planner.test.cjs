@@ -177,6 +177,16 @@ test("Anime Filename Planner", async suite => {
     assert.equal(result.sameRow, true);
     assert.ok(result.original > 0);
     assert.equal(result.current, result.original);
+    const firstRow = await page.locator("#filenames li").first().elementHandle();
+    await page.locator("#range").fill("9500–9998");
+    await expectedCount(page, "499 files");
+    assert.equal(await page.locator("#filenames li").count(), 499);
+    await page.locator("#range").fill("9500–9999");
+    await expectedCount(page, "500 files");
+    assert.equal(await page.locator("#filenames li").count(), 500);
+    await page.locator("#extension").fill("mp4");
+    await page.locator("#filenames code").filter({ hasText: /E9999\.mp4$/ }).waitFor();
+    assert.equal(await firstRow.evaluate(row => row === document.querySelector("#filenames li")), true);
     await page.locator("#range").fill("9499–9999");
     await page.locator("#error-range").waitFor();
     assert.match(await page.locator("#error-range").textContent(), /500 episodes/);
