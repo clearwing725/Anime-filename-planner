@@ -205,14 +205,19 @@ internal sealed class PlannerWindow : Form
             RestoreDirectory = true,
             DereferenceLinks = false
         };
-        if (picker.ShowDialog(this) != DialogResult.OK) return;
+        if (picker.ShowDialog(this) != DialogResult.OK)
+        {
+            ReportStatus("Rename canceled.");
+            return;
+        }
 
         // Match Explorer's numeric order so episode 2 comes before episode 10.
         var sources = picker.FileNames.OrderBy(Path.GetFileName,
             System.Collections.Generic.Comparer<string?>.Create((left, right) =>
                 StrCmpLogicalW(left ?? "", right ?? "")))
             .ThenBy(file => file, StringComparer.Ordinal).ToArray();
-        var moves = PlannerRename.Preview(sources, names);
+        if (sources.Length != names.Length)
+            throw new IOException($"Select {names.Length} files to match the generated names.");
 
         using var preview = new Form
         {
@@ -230,28 +235,83 @@ internal sealed class PlannerWindow : Form
             AllowUserToAddRows = false,
             AllowUserToDeleteRows = false,
             RowHeadersVisible = false,
+            MultiSelect = false,
+            SelectionMode = DataGridViewSelectionMode.FullRowSelect,
             AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
         };
         rows.Columns.Add("current", "Current filename");
         rows.Columns.Add("proposed", "New filename");
         foreach (DataGridViewColumn column in rows.Columns)
             column.SortMode = DataGridViewColumnSortMode.NotSortable;
-        foreach (var move in moves)
-            rows.Rows.Add(Path.GetFileName(move.Source), Path.GetFileName(move.Destination));
+        for (int i = 0; i < sources.Length; i++)
+            rows.Rows.Add(Path.GetFileName(sources[i]), names[i]);
 
         using var buttons = new FlowLayoutPanel { Dock = DockStyle.Bottom, AutoSize = true,
             FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(8) };
         using var cancel = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, AutoSize = true };
-        using var rename = new Button { Text = "Apply renames", DialogResult = DialogResult.OK, AutoSize = true };
+        using var rename = new Button { Text = "Apply renames", AutoSize = true };
+        using var up = new Button { Text = "Move file up", AutoSize = true };
+        using var down = new Button { Text = "Move file down", AutoSize = true };
+        PlannerRename.Move[]? moves = null;
+
+        void UpdateReorderButtons()
+        {
+            int index = rows.CurrentCell?.RowIndex ?? -1;
+            up.Enabled = index > 0;
+            down.Enabled = index >= 0 && index < sources.Length - 1;
+        }
+
+        void MoveFile(int offset)
+        {
+            int index = rows.CurrentCell?.RowIndex ?? -1;
+            int target = index + offset;
+            if (index < 0 || target < 0 || target >= sources.Length) return;
+
+            (sources[index], sources[target]) = (sources[target], sources[index]);
+            rows.Rows[index].Cells[0].Value = Path.GetFileName(sources[index]);
+            rows.Rows[target].Cells[0].Value = Path.GetFileName(sources[target]);
+            rows.CurrentCell = rows.Rows[target].Cells[0];
+        }
+
+        rows.CurrentCellChanged += (_, _) => UpdateReorderButtons();
+        UpdateReorderButtons();
+        up.Click += (_, _) => MoveFile(-1);
+        down.Click += (_, _) => MoveFile(1);
+        rename.Click += (_, _) =>
+        {
+            try
+            {
+                moves = PlannerRename.Preview(sources, names);
+                preview.DialogResult = DialogResult.OK;
+            }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+            {
+                MessageBox.Show(preview, error.Message, "Rename files", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        };
         buttons.Controls.Add(cancel);
         buttons.Controls.Add(rename);
+        buttons.Controls.Add(down);
+        buttons.Controls.Add(up);
+        using var instructions = new Label
+        {
+            Text = "Select a row and move its current file up or down to change which new name it receives.",
+            Dock = DockStyle.Top,
+            Height = 40,
+            Padding = new Padding(8)
+        };
         preview.Controls.Add(rows);
+        preview.Controls.Add(instructions);
         preview.Controls.Add(buttons);
         preview.CancelButton = cancel;
         preview.ActiveControl = cancel;
-        if (preview.ShowDialog(this) != DialogResult.OK) return;
+        if (preview.ShowDialog(this) != DialogResult.OK || moves is null)
+        {
+            ReportStatus("Rename canceled.");
+            return;
+        }
 
-        int count = PlannerRename.Apply(PlannerRename.Preview(sources, names));
+        int count = PlannerRename.Apply(moves);
         ReportStatus(count == 0 ? "The selected files already have these names."
             : $"Renamed {count} {(count == 1 ? "file" : "files")}.");
     }

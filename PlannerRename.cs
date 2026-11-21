@@ -23,7 +23,7 @@ internal static class PlannerRename
             string source = sources[i];
             if (name.Length is < 1 or > 255 || name.EndsWith('.') || name.EndsWith(' ') ||
                 name.Any(character => character < ' ' || "<>:\"/\\|?*".Contains(character)) ||
-                Regex.IsMatch(name.Split('.')[0].TrimEnd(), @"\A(CON|PRN|AUX|NUL|COM[1-9¹²³]|LPT[1-9¹²³])\z",
+                Regex.IsMatch(name.Split('.')[0].TrimEnd(), @"\A(CON|CONIN\$|CONOUT\$|PRN|AUX|NUL|COM[1-9¹²³]|LPT[1-9¹²³])\z",
                     RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
                 throw new IOException($"Invalid Windows filename: {name}");
             if (!File.Exists(source)) throw new IOException($"File is missing: {source}");

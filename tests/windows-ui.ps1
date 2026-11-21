@@ -89,34 +89,62 @@ try {
     if ([System.IO.File]::ReadAllText($destination) -cne $expected) { throw 'The exported filename was incorrect.' }
     Write-Output 'PASS: The native Windows Save dialog writes the expected text.'
 
-    $original = Join-Path $profile 'InuYasha 166-167.mkv'
-    $renamed = Join-Path $profile $expected
-    [System.IO.File]::WriteAllText($original, 'sample video contents')
+    $range = Find-NamedElement $window 'Episode range' ($types::Edit)
+    if (!$range) { throw 'The Episode range field is missing.' }
+    $range.SetFocus()
+    [System.Windows.Forms.Clipboard]::SetText('165-167')
+    [System.Windows.Forms.SendKeys]::SendWait('^a^v')
+    Wait-For 'two generated filenames' 10 {
+        $window.FindFirst($scope::Descendants, (New-PropertyCondition ($automation::NameProperty) '2 files'))
+    } | Out-Null
+
+    $first = Join-Path $profile 'Source 1.mkv'
+    $second = Join-Path $profile 'Source 2.mkv'
+    $single = Join-Path $profile 'InuYasha (2000) - S06E27.mkv'
+    $combined = Join-Path $profile $expected
+    [System.IO.File]::WriteAllText($first, 'combined video contents')
+    [System.IO.File]::WriteAllText($second, 'single video contents')
+    $selection = '"{0}" "{1}"' -f $first, $second
     $rename = Find-NamedElement $window 'Rename files' ($types::Button)
     $rename.GetCurrentPattern($invokePattern).Invoke()
     $picker = Wait-For 'the file selection dialog' 10 {
         $window.FindFirst($scope::Descendants,
-            (New-PropertyCondition ($automation::NameProperty) 'Select 1 file to rename'))
+            (New-PropertyCondition ($automation::NameProperty) 'Select 2 files to rename'))
     }
     $openEdit = Find-NamedElement $picker 'File name:' ($types::Edit)
     $open = Find-NamedElement $picker 'Open' ($types::Button)
     if ($openEdit -and $open) {
-        $openEdit.GetCurrentPattern($valuePattern).SetValue($original)
+        $openEdit.GetCurrentPattern($valuePattern).SetValue($selection)
         $open.GetCurrentPattern($invokePattern).Invoke()
     } else {
         $foreground = New-Object -ComObject WScript.Shell
-        if (!$foreground.AppActivate('Select 1 file to rename')) { throw 'Could not focus the file picker.' }
-        [System.Windows.Forms.Clipboard]::SetText($original)
+        if (!$foreground.AppActivate('Select 2 files to rename')) { throw 'Could not focus the file picker.' }
+        [System.Windows.Forms.Clipboard]::SetText($selection)
         [System.Windows.Forms.SendKeys]::SendWait('%n^a^v{ENTER}')
     }
-    $apply = Wait-For 'the rename preview' 10 { Find-NamedElement $window 'Apply renames' ($types::Button) }
-    if (!(Test-Path -LiteralPath $original -PathType Leaf)) { throw 'Preview changed the original file.' }
-    $apply.GetCurrentPattern($invokePattern).Invoke()
-    Wait-For 'the renamed media file' 10 { Test-Path -LiteralPath $renamed -PathType Leaf } | Out-Null
-    if ((Test-Path -LiteralPath $original) -or [System.IO.File]::ReadAllText($renamed) -cne 'sample video contents') {
-        throw 'The original file was not renamed in place with its contents intact.'
+    $down = Wait-For 'the enabled Move file down button' 10 {
+        $button = Find-NamedElement $window 'Move file down' ($types::Button)
+        if ($button -and $button.Current.IsEnabled) { $button }
     }
-    Write-Output 'PASS: The Windows app renames a selected media file in place after preview.'
+    if (!(Test-Path -LiteralPath $first) -or !(Test-Path -LiteralPath $second)) {
+        throw 'Preview changed the original files.'
+    }
+    $down.GetCurrentPattern($invokePattern).Invoke()
+    Wait-For 'the enabled Move file up button' 10 {
+        $button = Find-NamedElement $window 'Move file up' ($types::Button)
+        if ($button -and $button.Current.IsEnabled) { $button }
+    } | Out-Null
+    $apply = Find-NamedElement $window 'Apply renames' ($types::Button)
+    $apply.GetCurrentPattern($invokePattern).Invoke()
+    Wait-For 'both renamed media files' 10 {
+        (Test-Path -LiteralPath $single -PathType Leaf) -and (Test-Path -LiteralPath $combined -PathType Leaf)
+    } | Out-Null
+    if ((Test-Path -LiteralPath $first) -or (Test-Path -LiteralPath $second) -or
+        [System.IO.File]::ReadAllText($single) -cne 'single video contents' -or
+        [System.IO.File]::ReadAllText($combined) -cne 'combined video contents') {
+        throw 'The reordered files were not renamed to the intended episodes.'
+    }
+    Write-Output 'PASS: The Windows app applies the reordered episode assignments.'
 } catch {
     if ($window) {
         $window.FindAll($scope::Subtree, [System.Windows.Automation.Condition]::TrueCondition) |

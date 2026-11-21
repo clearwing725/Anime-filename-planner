@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-ZpHgXT3TEQJpxDzYV0XBwjTOKwamIXxMwUIJEHK4i6Q='; style-src 'sha256-EOKyzHr61PSPAA+HE6DBVKVLtPOOvH6xwEmZgTQEsCA='; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-dfQSm9VrYli9QK4U1M4WjFBMOjxkGYcr1G/u9w6Mdq8='; style-src 'sha256-EOKyzHr61PSPAA+HE6DBVKVLtPOOvH6xwEmZgTQEsCA='; base-uri 'none'; form-action 'none'">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Plan, check, and export season-based anime filenames for Plex and Jellyfin.">
   <meta name="theme-color" content="#f7f4ee">
@@ -500,18 +500,27 @@ function render() {
 
   if (previousFiles.length !== result.files.length ||
       result.files.some((filename, index) => filename !== previousFiles[index])) {
-    const rows = result.files.map((filename, index) => {
+    const sharedRows = Math.min(list.children.length, result.files.length);
+    for (let index = 0; index < sharedRows; index += 1) {
+      if (result.files[index] !== previousFiles[index]) {
+        list.children[index].lastElementChild.textContent = result.files[index];
+      }
+    }
+    while (list.children.length > result.files.length) list.lastElementChild.remove();
+
+    const rows = document.createDocumentFragment();
+    for (let index = sharedRows; index < result.files.length; index += 1) {
       const row = document.createElement("li");
       const number = document.createElement("span");
       number.className = "index";
       number.setAttribute("aria-hidden", "true");
       number.textContent = String(index + 1).padStart(2, "0");
       const code = document.createElement("code");
-      code.textContent = filename;
+      code.textContent = result.files[index];
       row.append(number, code);
-      return row;
-    });
-    list.replaceChildren(...rows);
+      rows.append(row);
+    }
+    list.append(rows);
     list.scrollTop = 0;
   }
   notice.dataset.state = errors.length ? "error" : result.warnings.length ? "warning" : "info";
